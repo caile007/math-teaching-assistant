@@ -40,6 +40,15 @@ export default function ProblemsPage() {
     []
   );
 
+  const handleExtractComplete = useCallback(
+    (updated: Problem) => {
+      setProblems((prev) =>
+        prev.map((p) => (p.id === updated.id ? updated : p))
+      );
+    },
+    []
+  );
+
   const handleDelete = useCallback(
     async (id: string) => {
       try {
@@ -71,7 +80,7 @@ export default function ProblemsPage() {
       <h1 className="text-2xl font-bold mb-6">错题收集</h1>
 
       {/* Upload area */}
-      <PhotoUploader onUploadComplete={handleUploadComplete} />
+      <PhotoUploader onUploadComplete={handleUploadComplete} onExtractComplete={handleExtractComplete} />
 
       {/* Search and stats */}
       {problems.length > 0 && (
@@ -106,6 +115,7 @@ export default function ProblemsPage() {
               key={problem.id}
               problem={problem}
               onDelete={handleDelete}
+              onExtract={handleExtractComplete}
             />
           ))}
         </div>

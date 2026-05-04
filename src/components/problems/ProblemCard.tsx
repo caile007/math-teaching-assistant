@@ -1,8 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { LaTeXRenderer } from "@/components/shared/LaTeXRenderer";
+import { toast } from "sonner";
 import type { Problem } from "@/types";
 
 function Badge({ children, variant = "default", className }: { children: React.ReactNode; variant?: string; className?: string }) {
@@ -33,10 +35,28 @@ interface Props {
   selected?: boolean;
   onSelect?: (id: string) => void;
   onDelete?: (id: string) => void;
+  onExtract?: (updated: Problem) => void;
   showActions?: boolean;
 }
 
-export function ProblemCard({ problem, selected, onSelect, onDelete, showActions = true }: Props) {
+export function ProblemCard({ problem, selected, onSelect, onDelete, onExtract, showActions = true }: Props) {
+  const [extracting, setExtracting] = useState(false);
+
+  const handleRetryExtract = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setExtracting(true);
+    try {
+      const res = await fetch(`/api/problems/${problem.id}/extract`, { method: "POST" });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      onExtract?.(data.problem);
+      toast.success("识别完成");
+    } catch {
+      toast.error("识别失败，请重试");
+    } finally {
+      setExtracting(false);
+    }
+  };
   return (
     <Card
       className={`p-4 relative ${selected ? "ring-2 ring-blue-500" : ""} ${onSelect ? "cursor-pointer" : ""}`}
@@ -58,7 +78,20 @@ export function ProblemCard({ problem, selected, onSelect, onDelete, showActions
           <LaTeXRenderer text={problem.extracted_text} />
         </div>
       ) : (
-        <p className="mb-2 text-sm text-orange-600 italic">AI 识别中...</p>
+        <div className="mb-2">
+          <p className="text-sm text-orange-600 italic mb-1">未识别</p>
+          {onExtract && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-xs"
+              disabled={extracting}
+              onClick={handleRetryExtract}
+            >
+              {extracting ? "识别中..." : "重试识别"}
+            </Button>
+          )}
+        </div>
       )}
 
       {/* Tags */}

@@ -8,9 +8,10 @@ import { toast } from "sonner";
 
 interface Props {
   onUploadComplete: (problem: Problem) => void;
+  onExtractComplete: (problem: Problem) => void;
 }
 
-export function PhotoUploader({ onUploadComplete }: Props) {
+export function PhotoUploader({ onUploadComplete, onExtractComplete }: Props) {
   const [uploading, setUploading] = useState(false);
 
   const onDrop = useCallback(
@@ -18,6 +19,7 @@ export function PhotoUploader({ onUploadComplete }: Props) {
       for (const file of acceptedFiles) {
         setUploading(true);
         try {
+          // Step 1: Upload photo (fast)
           const formData = new FormData();
           formData.append("photo", file);
 
@@ -32,8 +34,23 @@ export function PhotoUploader({ onUploadComplete }: Props) {
           }
 
           const data = await res.json();
-          toast.success("错题识别完成");
-          onUploadComplete(data.problem);
+          const problem = data.problem as Problem;
+          onUploadComplete(problem);
+          toast.success("照片已保存，AI 识别中...");
+
+          // Step 2: Trigger AI extraction (may take 10-30s)
+          const extractRes = await fetch(`/api/problems/${problem.id}/extract`, {
+            method: "POST",
+          });
+
+          if (!extractRes.ok) {
+            toast.warning("AI 识别超时，请在错题列表点击重试");
+            return;
+          }
+
+          const extractData = await extractRes.json();
+          onExtractComplete(extractData.problem);
+          toast.success("AI 识别完成！");
         } catch (error) {
           toast.error(error instanceof Error ? error.message : "上传失败");
         } finally {
@@ -41,7 +58,7 @@ export function PhotoUploader({ onUploadComplete }: Props) {
         }
       }
     },
-    [onUploadComplete]
+    [onUploadComplete, onExtractComplete]
   );
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -66,7 +83,7 @@ export function PhotoUploader({ onUploadComplete }: Props) {
       </div>
       <p className="text-gray-600 mb-2">
         {uploading
-          ? "正在识别题目中..."
+          ? "上传中..."
           : isDragActive
           ? "松开鼠标上传照片"
           : "拖拽照片到这里，或点击选择"}
